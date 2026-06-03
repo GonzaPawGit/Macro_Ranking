@@ -29,7 +29,7 @@
         .upload-section input[type="file"] {
             display: none;
         }
-        .custom-file-upload {
+        .custom-file-upload, .btn-save-load {
             display: inline-block;
             padding: 10px 20px;
             background-color: #1a1a1a;
@@ -40,7 +40,7 @@
             font-weight: bold;
             transition: 0.3s;
         }
-        .custom-file-upload:hover {
+        .custom-file-upload:hover, .btn-save-load:hover {
             background-color: #007acc;
             color: white;
         }
@@ -71,6 +71,33 @@
         }
         .form-group button:hover {
             background-color: #cccccc;
+        }
+        /* Storage controls area */
+        .storage-control-panel {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-bottom: 20px;
+            background-color: #0a0a0a;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #222;
+        }
+        .btn-export {
+            border-color: #4CAF50;
+            color: #4CAF50;
+        }
+        .btn-export:hover {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .btn-import {
+            border-color: #ffca28;
+            color: #ffca28;
+        }
+        .btn-import:hover {
+            background-color: #ffca28;
+            color: black;
         }
         /* Custom Ordered List Structure */
         ol {
@@ -140,6 +167,15 @@
 
     <hr style="border: 0; border-top: 1px solid #222; margin: 20px 0;">
 
+    <!-- Save & Load External File Section -->
+    <div class="storage-control-panel">
+        <button class="btn-save-load btn-export" onclick="exportRankingJSON()">Export List (.json)</button>
+        <label class="btn-save-load btn-import">
+            <input type="file" id="importJsonFile" accept=".json" style="display:none;" onchange="importRankingJSON(this)">
+            Import List (.json)
+        </label>
+    </div>
+
     <div class="upload-section">
         <label class="custom-file-upload">
             <input type="file" id="macroFile">
@@ -170,7 +206,27 @@
             }
         });
 
-        function addLevel(name = "", fileName = "", url = "") {
+        // Main function to read current ranking items from DOM to JSON
+        function getRankingData() {
+            const listItems = document.querySelectorAll('#rankingList li');
+            const data = [];
+            listItems.forEach(li => {
+                data.push({
+                    n: li.getAttribute('data-name'),
+                    f: li.getAttribute('data-file'),
+                    u: li.getAttribute('data-url')
+                });
+            });
+            return data;
+        }
+
+        // Save data to LocalStorage automatically
+        function saveToLocalStorage() {
+            const data = getRankingData();
+            localStorage.setItem('macroRankingData', JSON.stringify(data));
+        }
+
+        function addLevel(name = "", fileName = "", url = "", isBulkLoading = false) {
             const levelNameInput = document.getElementById('levelName');
             const levelUrlInput = document.getElementById('levelUrl');
             
@@ -220,32 +276,101 @@
                 fileCheck.textContent = "No file chosen";
                 fileCheck.style.color = "#555";
             }
+
+            // Trigger auto-save unless we are massively inserting items via load/import
+            if (!isBulkLoading) {
+                saveToLocalStorage();
+            }
         }
 
         function moveUp(button) {
             const li = button.parentElement.parentElement;
             const previous = li.previousElementSibling;
-            if (previous) li.parentNode.insertBefore(li, previous);
+            if (previous) {
+                li.parentNode.insertBefore(li, previous);
+                saveToLocalStorage();
+            }
         }
 
         function moveDown(button) {
             const li = button.parentElement.parentElement;
             const next = li.nextElementSibling;
-            if (next) li.parentNode.insertBefore(next, li);
+            if (next) {
+                li.parentNode.insertBefore(next, li);
+                saveToLocalStorage();
+            }
         }
 
         function btnDelete(button) {
             button.parentElement.parentElement.remove();
+            saveToLocalStorage();
         }
 
+        // --- NEW SAVE / LOAD SYSTEM FUNCTIONS ---
+
+        // Exports the list as a .json file download
+        function exportRankingJSON() {
+            const data = getRankingData();
+            if (data.length === 0) {
+                alert("The list is empty. There is nothing to export!");
+                return;
+            }
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", "macro_ranking.json");
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        }
+
+        // Imports the list from an external .json file
+        function importRankingJSON(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const importedData = JSON.parse(e.target.result);
+                        if (Array.isArray(importedData)) {
+                            if(confirm("This will overwrite your current list. Do you want to proceed?")) {
+                                document.getElementById('rankingList').innerHTML = ""; // Clear existing
+                                importedData.forEach(item => addLevel(item.n, item.f, item.u, true));
+                                saveToLocalStorage();
+                                alert("Ranking successfully imported!");
+                            }
+                        } else {
+                            alert("Invalid file format.");
+                        }
+                    } catch (error) {
+                        alert("Error reading the file.");
+                        console.error(error);
+                    }
+                };
+                reader.readAsText(input.files[0]);
+                input.value = ""; // Reset file input
+            }
+        }
+
+        // Combined initialization on load (URL Params + LocalStorage)
         window.addEventListener('DOMContentLoaded', () => {
             const urlParams = new URLSearchParams(window.location.search);
             const rankData = urlParams.get('rank');
+            
             if (rankData) {
+                // Load from URL if present
                 try {
                     const decodedJson = decodeURIComponent(escape(atob(rankData)));
-                    JSON.parse(decodedJson).forEach(item => addLevel(item.n, item.f, item.u));
-                } catch (e) { console.error("Error loading data", e); }
+                    JSON.parse(decodedJson).forEach(item => addLevel(item.n, item.f, item.u, true));
+                    saveToLocalStorage();
+                } catch (e) { console.error("Error loading URL data", e); }
+            } else {
+                // Otherwise load from LocalStorage
+                const savedData = localStorage.getItem('macroRankingData');
+                if (savedData) {
+                    try {
+                        JSON.parse(savedData).forEach(item => addLevel(item.n, item.f, item.u, true));
+                    } catch (e) { console.error("Error loading LocalStorage data", e); }
+                }
             }
         });
     </script>
