@@ -72,33 +72,6 @@
         .form-group button:hover {
             background-color: #cccccc;
         }
-        .share-box {
-            margin: 20px 0;
-            padding: 15px;
-            background-color: #0a0a0a;
-            border: 1px solid #1a237e;
-            border-radius: 8px;
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-        .share-box input {
-            flex: 1;
-            padding: 8px;
-            background: #000000;
-            border: 1px solid #333;
-            color: #4CAF50;
-            border-radius: 4px;
-        }
-        .share-box button {
-            padding: 8px 16px;
-            background-color: #1a237e;
-            border: none;
-            color: white;
-            font-weight: bold;
-            cursor: pointer;
-            border-radius: 4px;
-        }
         /* Custom Ordered List Structure */
         ol {
             list-style-type: none;
@@ -163,7 +136,7 @@
 <body>
 
     <h1>Macro Difficulty Ranking</h1>
-    <p style="color: #888;">Upload files, add links, and generate your shareable ranking.</p>
+    <p style="color: #888;">Upload files and manage your ranking list.</p>
 
     <hr style="border: 0; border-top: 1px solid #222; margin: 20px 0;">
 
@@ -179,11 +152,6 @@
             <input type="text" id="levelUrl" placeholder="Link/URL">
             <button onclick="addLevel()">Add to List</button>
         </div>
-    </div>
-
-    <div class="share-box">
-        <input type="text" id="shareUrlInput" readonly placeholder="Link will appear here...">
-        <button onclick="generateShareLink()">Copy Share Link</button>
     </div>
 
     <h2>Current Top</h2>
@@ -268,22 +236,6 @@
 
         function btnDelete(button) {
             button.parentElement.parentElement.remove();
-        }
-
-        function generateShareLink() {
-            const listItems = document.querySelectorAll('#rankingList li');
-            const data = [];
-            listItems.forEach(li => {
-                data.push({ n: li.getAttribute('data-name'), f: li.getAttribute('data-file'), u: li.getAttribute('data-url') });
-            });
-            const jsonStr = JSON.stringify(data);
-            const encodedData = btoa(unescape(encodeURIComponent(jsonStr)));
-            const shareUrl = window.location.origin + window.location.pathname + "?rank=" + encodedData;
-            const shareInput = document.getElementById('shareUrlInput');
-            shareInput.value = shareUrl;
-            shareInput.select();
-            document.execCommand('copy');
-            alert("Copied!");
         }
 
         window.addEventListener('DOMContentLoaded', () => {
